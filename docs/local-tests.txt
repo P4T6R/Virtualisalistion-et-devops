@@ -1,0 +1,30 @@
+WARN `--no-project` was provided, but no project was found
+Downloading psycopg2-binary (4.1MiB)
+ Downloaded psycopg2-binary
+Installed 9 packages in 9ms
+test_cache_disabled (test_project.ApplicationTests.test_cache_disabled) ... ok
+test_cache_hit_skips_database (test_project.ApplicationTests.test_cache_hit_skips_database) ... ok
+test_database_failure_on_miss (test_project.ApplicationTests.test_database_failure_on_miss) ... ok
+test_health_database_failure_has_no_raw_exception (test_project.ApplicationTests.test_health_database_failure_has_no_raw_exception) ... ok
+test_health_requires_real_query_and_closes_connection (test_project.ApplicationTests.test_health_requires_real_query_and_closes_connection) ... ok
+test_info (test_project.ApplicationTests.test_info) ... ok
+test_invalid_matricule_rejected_before_database (test_project.ApplicationTests.test_invalid_matricule_rejected_before_database) ... ok
+test_missing_candidate (test_project.ApplicationTests.test_missing_candidate) ... ok
+test_query_error_closes_connection (test_project.ApplicationTests.test_query_error_closes_connection) ... ok
+test_redis_unavailable_falls_back_to_database (test_project.ApplicationTests.test_redis_unavailable_falls_back_to_database) ... ok
+test_result_uses_parameterized_query (test_project.ApplicationTests.test_result_uses_parameterized_query) ... ok
+test_base_memory_and_unique_addresses (test_project.InfrastructureTests.test_base_memory_and_unique_addresses) ... ok
+test_configuration_write_is_idempotent (test_project.InfrastructureTests.test_configuration_write_is_idempotent) ... ok
+test_invalid_network_and_count_fail (test_project.InfrastructureTests.test_invalid_network_and_count_fail) ... ok
+test_invalid_postgresql_access_rules_stop_provisioning (test_project.InfrastructureTests.test_invalid_postgresql_access_rules_stop_provisioning) ... ok
+test_postgresql_access_rules_are_always_reloaded (test_project.InfrastructureTests.test_postgresql_access_rules_are_always_reloaded) ... ok
+test_scaling_uses_same_nodes_for_load_balancer (test_project.InfrastructureTests.test_scaling_uses_same_nodes_for_load_balancer) ... ok
+test_service_under_100_lines (test_project.InfrastructureTests.test_service_under_100_lines) ... ok
+test_promotion_refuses_running_or_saved_primary (test_project.OperationSafetyTests.test_promotion_refuses_running_or_saved_primary) ... ok
+test_rebuild_requires_explicit_destructive_flag (test_project.OperationSafetyTests.test_rebuild_requires_explicit_destructive_flag) ... ok
+test_rollout_refuses_to_remove_only_healthy_backend (test_project.OperationSafetyTests.test_rollout_refuses_to_remove_only_healthy_backend) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.474s
+
+OK

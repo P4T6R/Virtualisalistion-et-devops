@@ -1,0 +1,5 @@
+HAProxy 2.8.16 parser validation. Test copies only: user/group replaced by nobody/nogroup because the host has no haproxy account. Guest configurations retain the package-created haproxy account. No proxy was started.
+
+2 backends: Configuration file is valid 
+4 backends: Configuration file is valid 
+8 backends: Configuration file is valid 

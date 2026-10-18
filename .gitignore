@@ -1,0 +1,9 @@
+.env
+.runtime/
+.vagrant/
+__pycache__/
+*.pyc
+results/*
+!results/README.md
+
+.test-env/
