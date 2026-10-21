@@ -63,6 +63,13 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertNotIn('secret', response.get_data(as_text=True))
 
+    def test_undecodable_database_error_returns_503(self):
+        service.connect.side_effect = UnicodeDecodeError('utf-8', b'\xe9', 0, 1, 'invalid')
+        self.assertEqual(self.client.get('/sante').status_code, 503)
+        response = self.client.get('/resultat?matricule=000001')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json, {'error': 'database_unavailable'})
+    
     def test_query_error_closes_connection(self):
         self.cursor.execute.side_effect = service.psycopg2.OperationalError('bad SQL')
         self.assertEqual(self.client.get('/sante').status_code, 503)

@@ -45,7 +45,7 @@ def health():
         finally:
             connection.close()
         return jsonify(status='ok')
-    except psycopg2.Error:
+    except (psycopg2.Error, UnicodeDecodeError):
         return jsonify(status='database_unavailable'), 503
 
 
@@ -72,7 +72,7 @@ def result():
                 row = cursor.fetchone()
         finally:
             connection.close()
-    except psycopg2.Error:
+    except (psycopg2.Error, UnicodeDecodeError):
         return jsonify(error='database_unavailable'), 503
     if not row:
         return jsonify(error='not_found'), 404
