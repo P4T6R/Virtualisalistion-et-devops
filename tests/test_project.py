@@ -35,6 +35,21 @@ class ApplicationTests(unittest.TestCase):
     def test_info(self):
         self.assertEqual(self.client.get('/info').status_code, 200)
         self.assertIn('hostname', self.client.get('/info').json)
+    
+    def test_info_reports_release_used_by_e4(self):
+        with patch.dict(os.environ, {'RELEASE': '2'}):
+            self.assertEqual(self.client.get('/info').json['release'], '2')
+
+    def test_unknown_route_returns_json(self):
+        response = self.client.get('/inconnu')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json, {'error': 'not_found'})
+
+    def test_wrong_method_returns_json(self):
+        response = self.client.post('/resultat?matricule=000001')
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response.json, {'error': 'method_not_allowed'})
+
 
     def test_health_requires_real_query_and_closes_connection(self):
         self.assertEqual(self.client.get('/sante').status_code, 200)
