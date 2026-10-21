@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -143,7 +144,18 @@ class InfrastructureTests(unittest.TestCase):
                     self.assertIn(f"server {node['name']} {node['ip']}:8000", config)
             self.assertIn('option httpchk GET /sante', config)
             self.assertIn('fall 2', config)
-
+    def test_health_check_timing_evicts_server_within_five_seconds(self):
+        nodes = json.loads(self.topology().stdout)['nodes']
+        config = haproxy_config(nodes)
+        check_timeout = float(re.search(r'timeout check (\d+)s', config).group(1))
+        for line in config.splitlines():
+            if line.strip().startswith('server '):
+                inter = float(re.search(r'inter (\d+)s', line).group(1))
+                fastinter = float(re.search(r'fastinter (\d+)ms', line).group(1)) / 1000
+                fall = int(re.search(r'fall (\d+)', line).group(1))
+                worst_case = inter + fall * (fastinter + check_timeout)
+                self.assertLess(worst_case, 5, line)
+    
     def test_invalid_network_and_count_fail(self):
         for count, octet in [(1,56),(9,56),(2,65),(2,55)]:
             self.assertNotEqual(self.topology(count,octet).returncode, 0)
