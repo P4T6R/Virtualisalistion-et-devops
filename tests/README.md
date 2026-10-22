@@ -13,3 +13,6 @@ connexions PostgreSQL et Redis afin de couvrir les chemins d'erreur. Les tests
 d'infrastructure exécutent le générateur Ruby de l'inventaire et la production
 de la configuration HAProxy. Ils ne démarrent pas de VM et ne remplacent pas les
 preuves de réplication, de performances et de disponibilité dans results.
+
+Le workflow .github/workflows/tests.yml exécute ces mêmes commandes sur GitHub
+Actions à chaque push sur main et à chaque pull request.
