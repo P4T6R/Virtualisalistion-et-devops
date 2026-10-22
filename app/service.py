@@ -20,6 +20,14 @@ def connect():
                            connect_timeout=2, target_session_attrs='read-write',
                            options='-c statement_timeout=1500')
 
+@app.errorhandler(404)
+def not_found(_error):
+    return jsonify(error='not_found'), 404
+
+
+@app.errorhandler(405)
+def method_not_allowed(_error):
+    return jsonify(error='method_not_allowed'), 405
 
 @app.get('/info')
 def info():
@@ -37,7 +45,7 @@ def health():
         finally:
             connection.close()
         return jsonify(status='ok')
-    except psycopg2.Error:
+    except (psycopg2.Error, UnicodeDecodeError):
         return jsonify(status='database_unavailable'), 503
 
 
@@ -64,7 +72,7 @@ def result():
                 row = cursor.fetchone()
         finally:
             connection.close()
-    except psycopg2.Error:
+    except (psycopg2.Error, UnicodeDecodeError):
         return jsonify(error='database_unavailable'), 503
     if not row:
         return jsonify(error='not_found'), 404

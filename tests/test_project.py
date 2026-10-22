@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -35,6 +36,21 @@ class ApplicationTests(unittest.TestCase):
     def test_info(self):
         self.assertEqual(self.client.get('/info').status_code, 200)
         self.assertIn('hostname', self.client.get('/info').json)
+    
+    def test_info_reports_release_used_by_e4(self):
+        with patch.dict(os.environ, {'RELEASE': '2'}):
+            self.assertEqual(self.client.get('/info').json['release'], '2')
+
+    def test_unknown_route_returns_json(self):
+        response = self.client.get('/inconnu')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json, {'error': 'not_found'})
+
+    def test_wrong_method_returns_json(self):
+        response = self.client.post('/resultat?matricule=000001')
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response.json, {'error': 'method_not_allowed'})
+
 
     def test_health_requires_real_query_and_closes_connection(self):
         self.assertEqual(self.client.get('/sante').status_code, 200)
@@ -48,6 +64,13 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertNotIn('secret', response.get_data(as_text=True))
 
+    def test_undecodable_database_error_returns_503(self):
+        service.connect.side_effect = UnicodeDecodeError('utf-8', b'\xe9', 0, 1, 'invalid')
+        self.assertEqual(self.client.get('/sante').status_code, 503)
+        response = self.client.get('/resultat?matricule=000001')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json, {'error': 'database_unavailable'})
+    
     def test_query_error_closes_connection(self):
         self.cursor.execute.side_effect = service.psycopg2.OperationalError('bad SQL')
         self.assertEqual(self.client.get('/sante').status_code, 503)
@@ -121,7 +144,18 @@ class InfrastructureTests(unittest.TestCase):
                     self.assertIn(f"server {node['name']} {node['ip']}:8000", config)
             self.assertIn('option httpchk GET /sante', config)
             self.assertIn('fall 2', config)
-
+    def test_health_check_timing_evicts_server_within_five_seconds(self):
+        nodes = json.loads(self.topology().stdout)['nodes']
+        config = haproxy_config(nodes)
+        check_timeout = float(re.search(r'timeout check (\d+)s', config).group(1))
+        for line in config.splitlines():
+            if line.strip().startswith('server '):
+                inter = float(re.search(r'inter (\d+)s', line).group(1))
+                fastinter = float(re.search(r'fastinter (\d+)ms', line).group(1)) / 1000
+                fall = int(re.search(r'fall (\d+)', line).group(1))
+                worst_case = inter + fall * (fastinter + check_timeout)
+                self.assertLess(worst_case, 5, line)
+    
     def test_invalid_network_and_count_fail(self):
         for count, octet in [(1,56),(9,56),(2,65),(2,55)]:
             self.assertNotEqual(self.topology(count,octet).returncode, 0)
