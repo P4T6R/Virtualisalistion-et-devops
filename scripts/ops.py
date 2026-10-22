@@ -94,22 +94,59 @@ def save(name, data):
     print(path.relative_to(ROOT))
 
 
+def project_vm_ids(root=ROOT):
+    return {path.read_text().strip() for path in (root / '.vagrant' / 'machines').glob('*/virtualbox/id')}
+
+
+def guest_property(uuid, name):
+    # "get" prints "Value: x" or "No value set!" in VirtualBox 6 and 7; "enumerate" changed format.
+    value = run('VBoxManage', 'guestproperty', 'get', uuid, name, capture=True).strip()
+    return value[len('Value: '):] if value.startswith('Value: ') else None
+
+
+def guest_addresses():
+    """IPv4 addresses reported by the Guest Additions of each running VirtualBox VM."""
+    result = {}
+    listing = run('VBoxManage', 'list', 'runningvms', capture=True)
+    for name, uuid in re.findall(r'^"(.*)" \{([0-9a-fA-F-]+)\}$', listing, re.M):
+        count = int(guest_property(uuid, '/VirtualBox/GuestInfo/Net/Count') or 0)
+        result[(name, uuid)] = {ip for i in range(count)
+                                if (ip := guest_property(uuid, f'/VirtualBox/GuestInfo/Net/{i}/V4/IP'))}
+    return result
+
+
+def address_conflicts(nodes, guests, project_ids):
+    # The 2026-10-18 incident: stale VMs outside the project still held .31 and .32.
+    wanted = {n['ip']: n['name'] for n in nodes}
+    return [f'{wanted[ip]} {ip} is already used by VirtualBox VM "{name}" ({uuid})'
+            for (name, uuid), ips in sorted(guests.items()) if uuid not in project_ids
+            for ip in sorted(ips) if ip in wanted]
+
+
 def preflight():
     failed = []
     for binary in ('vagrant', 'VBoxManage', 'ruby', 'python3', 'ab'):
         found = shutil.which(binary)
         print(f'{binary}: {found or "MISSING"}')
         if not found: failed.append(binary)
+    topology = inventory()
     if shutil.which('VBoxManage'):
         for args in [('list', 'hostonlyifs'), ('list', 'runningvms')]:
             try:
                 subprocess.run(['VBoxManage', *args], check=True, timeout=20)
             except (subprocess.SubprocessError, OSError):
                 failed.append('VirtualBox access')
+        try:
+            conflicts = address_conflicts(topology['nodes'], guest_addresses(), project_vm_ids())
+        except (subprocess.SubprocessError, OSError):
+            conflicts = []  # Already reported as a VirtualBox access failure.
+        for conflict in conflicts: print('Address conflict:', conflict)
+        if conflicts: failed.append('address conflict with a VM outside this project')
     if not Path('/dev/vboxdrv').exists():
         failed.append('/dev/vboxdrv inaccessible')
-    print('Provisional network:', inventory()['subnet'])
-    print('Check existing guest addresses in VirtualBox before starting; no automatic network reassignment.')
+    print('Provisional network:', topology['subnet'])
+    print('Running VirtualBox guests were checked for these addresses; '
+          'other machines on the network are not. No automatic network reassignment.')
     if shutil.which('free'): run('free', '-h')
     if not (ROOT / '.env').exists(): failed.append('.env: run scripts/setup.py')
     if failed: raise SystemExit('Resolve before launch: ' + ', '.join(failed))

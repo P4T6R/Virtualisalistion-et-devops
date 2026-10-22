@@ -215,5 +215,56 @@ class OperationSafetyTests(unittest.TestCase):
             runtime.assert_not_called()
 
 
+class AddressConflictTests(unittest.TestCase):
+    NODES = [{'name': 'bdd1', 'ip': '192.168.56.31'}, {'name': 'bdd2', 'ip': '192.168.56.32'},
+             {'name': 'lb1', 'ip': '192.168.56.11'}]
+
+    def test_guest_addresses_reads_guest_additions_properties(self):
+        import ops
+        net = '/VirtualBox/GuestInfo/Net/'
+        outputs = {
+            ('list', 'runningvms'): '"old_bdd1" {aaaa-1}\n"no additions" {bbbb-2}\n',
+            ('guestproperty', 'get', 'aaaa-1', net + 'Count'): 'Value: 2\n',
+            ('guestproperty', 'get', 'aaaa-1', net + '0/V4/IP'): 'Value: 10.0.2.15\n',
+            ('guestproperty', 'get', 'aaaa-1', net + '1/V4/IP'): 'Value: 192.168.56.31\n',
+            ('guestproperty', 'get', 'bbbb-2', net + 'Count'): 'No value set!\n',
+        }
+        with patch.object(ops, 'run', side_effect=lambda *args, capture: outputs[args[1:]]):
+            self.assertEqual(ops.guest_addresses(), {
+                ('old_bdd1', 'aaaa-1'): {'10.0.2.15', '192.168.56.31'},
+                ('no additions', 'bbbb-2'): set()})
+
+    def test_only_vms_outside_project_are_conflicts(self):
+        import ops
+        guests = {('resultats_bdd1', 'project-1'): {'192.168.56.31'},
+                  ('old_bdd2', 'stale-2'): {'10.0.2.15', '192.168.56.32'},
+                  ('unrelated', 'other-3'): {'192.168.57.31'}}
+        conflicts = ops.address_conflicts(self.NODES, guests, {'project-1'})
+        self.assertEqual(conflicts, ['bdd2 192.168.56.32 is already used by VirtualBox VM "old_bdd2" (stale-2)'])
+
+    def test_project_vm_ids_come_from_vagrant_state(self):
+        import ops
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(ops.project_vm_ids(root), set())
+            for name, uuid in (('bdd1', 'uuid-1'), ('lb1', 'uuid-2')):
+                (root / '.vagrant/machines' / name / 'virtualbox').mkdir(parents=True)
+                (root / '.vagrant/machines' / name / 'virtualbox/id').write_text(uuid + '\n')
+            self.assertEqual(ops.project_vm_ids(root), {'uuid-1', 'uuid-2'})
+
+    def test_preflight_stops_on_address_conflict(self):
+        import ops
+        with patch.object(ops.shutil, 'which', return_value='/usr/bin/tool'), \
+             patch.object(ops.subprocess, 'run'), patch.object(ops, 'run'), \
+             patch.object(ops, 'inventory', return_value={'nodes': self.NODES, 'subnet': '192.168.56.0/24'}), \
+             patch.object(ops, 'guest_addresses', return_value={('old_bdd1', 'stale'): {'192.168.56.31'}}), \
+             patch.object(ops, 'project_vm_ids', return_value=set()), \
+             patch('builtins.print') as output:
+            with self.assertRaisesRegex(SystemExit, 'address conflict'):
+                ops.preflight()
+        output.assert_any_call('Address conflict:',
+                               'bdd1 192.168.56.31 is already used by VirtualBox VM "old_bdd1" (stale)')
+
+
 if __name__ == '__main__':
     unittest.main()

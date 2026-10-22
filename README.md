@@ -19,6 +19,11 @@ Le sujet attribue des réseaux uniquement aux groupes 1 à 8. Le groupe 10 utili
 provisoirement NETWORK_OCTET=56, soit 192.168.56.0/24. Il faut confirmer ce choix
 avec l'enseignant et vérifier que .11, .21 à .28, .31 et .32 sont disponibles.
 
+python3 scripts/ops.py preflight s'arrête si une VM VirtualBox en cours
+d'exécution, hors de ce projet, annonce déjà l'une des adresses de l'inventaire.
+La détection repose sur les Guest Additions ; une VM qui n'en dispose pas, ou une
+machine hors VirtualBox, doit toujours être vérifiée à la main.
+
 ## 2 Démarrage
 
 Depuis le dossier du projet :
