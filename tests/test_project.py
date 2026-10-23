@@ -2,6 +2,7 @@ import importlib.util
 import json
 import re
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -163,6 +164,27 @@ class InfrastructureTests(unittest.TestCase):
                 worst_case = inter + fall * (fastinter + check_timeout)
                 self.assertLess(worst_case, 5, line)
     
+    def test_load_balancer_answers_json_503_without_healthy_server(self):
+        # V4: once every application is evicted, the client still gets JSON.
+        config = haproxy_config(json.loads(self.topology().stdout)['nodes'])
+        frontend = config.split('frontend public')[1].split('\nbackend apps')[0]
+        rule = "http-request return status 503 content-type application/json"
+        self.assertIn(rule, frontend)
+        self.assertIn("if { nbsrv(apps) eq 0 }", frontend)
+        self.assertLess(frontend.index(rule), frontend.index('default_backend apps'))
+
+    def test_load_balancer_configuration_is_accepted_by_haproxy(self):
+        binary = shutil.which('haproxy')
+        if not binary:
+            self.skipTest('haproxy is not installed on this host')
+        config = haproxy_config(json.loads(self.topology().stdout)['nodes'])
+        config = config.replace('/run/haproxy/admin.sock', '/tmp/resultats-check.sock')
+        with tempfile.NamedTemporaryFile('w', suffix='.cfg') as stream:
+            stream.write(config)
+            stream.flush()
+            result = subprocess.run([binary, '-c', '-f', stream.name], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_invalid_network_and_count_fail(self):
         for count, octet in [(1,56),(9,56),(2,65),(2,55)]:
             self.assertNotEqual(self.topology(count,octet).returncode, 0)

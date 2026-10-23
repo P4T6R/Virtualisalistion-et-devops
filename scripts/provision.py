@@ -70,6 +70,8 @@ defaults
 
 frontend public
     bind 0.0.0.0:80
+    # Without any healthy server, answer like the application does: JSON 503.
+    http-request return status 503 content-type application/json string '{"error":"service_unavailable"}' if { nbsrv(apps) eq 0 }
     default_backend apps
 
 backend apps
