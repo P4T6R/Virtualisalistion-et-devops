@@ -4,7 +4,7 @@
 |---|---|---|---|
 | R1 / V5 | validate-recovery.py | Réussi — sept VM en 1 042,10 s, santé 200 | 20261018T132322639742Z-V5-reconstruction.json et V5-post-rebuild.json |
 | R2 | ops.py idempotence | Réussi — mêmes empreintes après les deux applications | R2-idempotence et R2-idempotence-evaluation |
-| R3 / V1 | NB_APP=4 puis ops.py v1 | Réussi — cinq réponses par application, écart nul | 20261018T132331048575Z-V1.json |
+| R3 / V1 | NB_APP=4 puis ops.py v1 | Réussi — 20 appels à /info, cinq réponses par application, écart nul | 20261018T132331048575Z-V1.json |
 | R4 / V2 | validate-live.py v2 | Réussi — huit pertes, 4,49 s dégradées, aucune erreur après cinq secondes | V2-app-failure, évaluation et CSV |
 | R5 | ops.py replication | Réussi — valeur unique visible sur bdd2 | 20261018T132337157126Z-R5-replication.json |
 | R6 / V4 | validate-recovery.py | Réussi — 503 contrôlé, bdd2 principale, santé 200 en 22,66 s reprises | V4-promotion et V4-total-failover |

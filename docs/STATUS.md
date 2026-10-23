@@ -14,7 +14,8 @@
 
 ## Résultats vérifiés
 
-- V1 : cinq réponses par application, écart de 0 %.
+- V1 : 20 appels successifs à /info avec quatre applications, soit cinq
+  réponses par application, écart de 0 %.
 - V2 : 2 939 requêtes, huit pertes, période dégradée de 4,49 s, éviction HAProxy
   en 3,67 s et aucune erreur après cinq secondes.
 - V3 : 137,17 req/s avec deux applications et 121,28 req/s avec quatre, sans

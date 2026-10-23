@@ -215,6 +215,45 @@ class OperationSafetyTests(unittest.TestCase):
             runtime.assert_not_called()
 
 
+class DistributionTests(unittest.TestCase):
+    def run_distribution(self, count, hostnames, per_app=None):
+        import itertools
+        import ops
+        nodes = [{'name': f'app{i}', 'role': 'app'} for i in range(1, count + 1)]
+        responses = itertools.cycle((200, json.dumps({'hostname': name})) for name in hostnames)
+        with patch.object(ops, 'inventory', return_value={'nodes': nodes}), \
+             patch.object(ops, 'request', side_effect=lambda path: next(responses)) as request, \
+             patch.object(ops, 'save') as save:
+            ops.distribution(per_app)
+        request.assert_called_with('/info')
+        return save.call_args.args
+
+    def test_official_v1_sends_20_calls_with_two_and_four_apps(self):
+        for count in (2, 4):
+            label, report = self.run_distribution(count, [f'app{i}' for i in range(1, count + 1)])
+            self.assertEqual(label, 'V1')
+            self.assertEqual(len(report['responses']), 20)
+            self.assertEqual(report['relative_spread'], 0)
+            self.assertTrue(report['passed'])
+
+    def test_official_v1_fails_when_an_app_receives_no_traffic(self):
+        for count in (2, 4):
+            names = [f'app{i}' for i in range(1, count)]
+            with self.assertRaisesRegex(RuntimeError, 'V1 distribution criterion failed'):
+                self.run_distribution(count, names)
+
+    def test_generic_check_sends_five_calls_per_app_up_to_eight_apps(self):
+        for count in range(2, 9):
+            label, report = self.run_distribution(count, [f'app{i}' for i in range(1, count + 1)], 5)
+            self.assertEqual(label, 'V1-generic')
+            self.assertEqual(len(report['responses']), 5 * count)
+            self.assertTrue(report['passed'])
+
+    def test_generic_check_fails_when_an_app_receives_no_traffic(self):
+        with self.assertRaisesRegex(RuntimeError, 'V1-generic distribution criterion failed'):
+            self.run_distribution(8, [f'app{i}' for i in range(1, 8)], 5)
+
+
 class AddressConflictTests(unittest.TestCase):
     NODES = [{'name': 'bdd1', 'ip': '192.168.56.31'}, {'name': 'bdd2', 'ip': '192.168.56.32'},
              {'name': 'lb1', 'ip': '192.168.56.11'}]
