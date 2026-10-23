@@ -152,20 +152,25 @@ def preflight():
     if failed: raise SystemExit('Resolve before launch: ' + ', '.join(failed))
 
 
-def distribution():
+def distribution(per_app=None):
+    # Official V1 is 20 successive /info calls (even shares for N=2 and N=4).
+    # 20 cannot be shared evenly by 6, 7 or 8 apps, so the separate v1-generic
+    # check sends per_app calls to each app instead; V1 itself is unchanged.
+    expected = {n['name'] for n in inventory()['nodes'] if n['role'] == 'app'}
+    label = 'V1' if per_app is None else 'V1-generic'
+    total = 20 if per_app is None else per_app * len(expected)
     rows = []
     counts = Counter()
-    for _ in range(20):
+    for _ in range(total):
         status, body = request('/info')
         rows.append({'status': status, 'body': body})
         if status != 200: raise RuntimeError(f'/info returned {status}')
         counts[json.loads(body)['hostname']] += 1
-    expected = {n['name'] for n in inventory()['nodes'] if n['role'] == 'app'}
     values = [counts[n] for n in expected]
-    spread = (max(values) - min(values)) / (20 / len(values))
+    spread = (max(values) - min(values)) / (total / len(values))
     passed = set(counts) == expected and spread < 0.2
-    save('V1', {'responses': rows, 'counts': counts, 'relative_spread': spread, 'passed': passed})
-    if not passed: raise RuntimeError('V1 distribution criterion failed')
+    save(label, {'responses': rows, 'counts': counts, 'relative_spread': spread, 'passed': passed})
+    if not passed: raise RuntimeError(f'{label} distribution criterion failed')
 
 
 def probe(seconds, workers, path):
@@ -373,7 +378,7 @@ def rebuild(confirm):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['preflight','v1','probe','benchmark','promote','rolling',
+    parser.add_argument('action', choices=['preflight','v1','v1-generic','probe','benchmark','promote','rolling',
                                           'cache-on','cache-off','cache-purge','replication','idempotence','rebuild'])
     parser.add_argument('--seconds', type=int, default=60)
     parser.add_argument('--workers', type=int, default=4)
@@ -382,7 +387,8 @@ def main():
     parser.add_argument('--release', default='2')
     parser.add_argument('--confirm-destroy-project-vms', action='store_true')
     args = parser.parse_args()
-    actions = {'preflight': preflight, 'v1': distribution, 'replication': replication,
+    actions = {'preflight': preflight, 'v1': distribution,
+               'v1-generic': lambda: distribution(per_app=5), 'replication': replication,
                'promote': promote, 'cache-on': lambda: cache_mode(True),
                'cache-off': lambda: cache_mode(False), 'cache-purge': purge,
                'idempotence': idempotence, 'benchmark': lambda: benchmark(args.label),

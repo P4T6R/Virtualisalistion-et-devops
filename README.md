@@ -87,6 +87,15 @@ Le test utilise exactement ab -n 2000 -c 50. Le résultat réel est 137,17 req/s
 avec deux applications et 121,28 req/s avec quatre. Le partage du même hôte,
 de la même base et du même disque explique cette baisse.
 
+ops.py v1 est le scénario V1 officiel : exactement 20 appels successifs à /info,
+soit dix réponses par application avec NB_APP=2 et cinq avec NB_APP=4. Ces deux
+cas sont ceux qui doivent être validés. Vingt appels ne se répartissent pas
+également entre six, sept ou huit applications ; pour vérifier la répartition
+avec ces valeurs, une commande distincte, qui ne remplace pas V1, envoie cinq
+appels par application et enregistre une preuve V1-generic :
+
+    python3 scripts/ops.py v1-generic
+
 ## 5 Réplication et idempotence
 
     python3 scripts/ops.py replication
