@@ -309,15 +309,29 @@ def replication():
     code = '''import subprocess
 print(subprocess.check_output(['runuser','-u','postgres','--','psql','-X','-At','-d','resultats','-c',%r],text=True))
 '''
+    # Check the roles before writing: after a promotion bdd2 is the primary and
+    # writing to bdd1 would test nothing. Nothing is modified if a check fails.
+    roles = {node: remote(node, code % 'SELECT pg_is_in_recovery();') for node in ('bdd1', 'bdd2')}
+    if roles != {'bdd1': 'f', 'bdd2': 't'}:
+        raise RuntimeError(f'R5 expects bdd1 primary and bdd2 replica, got in_recovery={roles}. '
+                           'After a promotion, rebuild before testing replication.')
+    stream = remote('bdd1', code % 'SELECT state FROM pg_stat_replication;')
+    if 'streaming' not in stream.split():
+        raise RuntimeError(f'bdd1 has no streaming replica (pg_stat_replication: {stream!r})')
     # Update one existing synthetic record inside a transaction; keep 50,000 rows.
     token = 'Replication probe ' + str(time.time_ns())
     remote('bdd1', code % ("UPDATE resultats SET nom='" + token + "' WHERE matricule='050000';"))
+    written = time.monotonic()
     try:
-        deadline = time.monotonic() + 20
+        deadline = written + 20
         while time.monotonic() < deadline:
             value = remote('bdd2', code % "SELECT nom FROM resultats WHERE matricule='050000';")
             if value == token:
-                save('R5-replication', {'visible_on_bdd2': value, 'passed': True})
+                # Includes vagrant ssh round trips, so it is an upper bound of the real lag.
+                save('R5-replication', {'roles_in_recovery': roles, 'stream_state': stream,
+                                        'visible_on_bdd2': value,
+                                        'visible_after_seconds_upper_bound': time.monotonic() - written,
+                                        'passed': True})
                 return
             time.sleep(0.5)
         raise RuntimeError('Replication did not catch up within 20 seconds')

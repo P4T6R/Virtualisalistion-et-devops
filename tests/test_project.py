@@ -120,6 +120,13 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json, {'error': 'database_unavailable'})
 
+    def test_cached_result_is_served_while_health_reports_database_outage(self):
+        # V4: /sante must stay honest even when Redis can still answer a lookup.
+        service.connect.side_effect = service.psycopg2.OperationalError('down')
+        self.cache.get.return_value = '{"matricule":"000001"}'
+        self.assertEqual(self.client.get('/sante').status_code, 503)
+        self.assertEqual(self.client.get('/resultat?matricule=000001').status_code, 200)
+
 
 class InfrastructureTests(unittest.TestCase):
     def topology(self, count=2, octet=56):
@@ -213,6 +220,101 @@ class OperationSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'No other healthy backend'):
                 ops.rolling('2')
             runtime.assert_not_called()
+
+
+class DataLayerTests(unittest.TestCase):
+    NODES = [{'name': 'bdd1', 'role': 'primary'}, {'name': 'bdd2', 'role': 'replica'},
+             {'name': 'app1', 'role': 'app'}, {'name': 'app2', 'role': 'app'},
+             {'name': 'lb1', 'role': 'lb'}]
+
+    def diagnostic(self):
+        spec = importlib.util.spec_from_file_location('diagnose_db', ROOT / 'scripts/diagnose-db.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_replication_check_refuses_inverted_roles_without_writing(self):
+        import ops
+        answers = {'bdd1': 't', 'bdd2': 'f'}
+        with patch.object(ops, 'remote', side_effect=lambda node, code: answers[node]) as remote, \
+             patch.object(ops, 'save') as save, patch.object(ops, 'purge') as purge:
+            with self.assertRaisesRegex(RuntimeError, 'bdd1 primary and bdd2 replica'):
+                ops.replication()
+        self.assertFalse(any('UPDATE' in call.args[1] for call in remote.call_args_list))
+        save.assert_not_called()
+        purge.assert_not_called()
+
+    def test_replication_check_requires_streaming_replica(self):
+        import ops
+        def remote(node, code):
+            if 'pg_is_in_recovery' in code:
+                return {'bdd1': 'f', 'bdd2': 't'}[node]
+            return ''
+        with patch.object(ops, 'remote', side_effect=remote), patch.object(ops, 'purge'):
+            with self.assertRaisesRegex(RuntimeError, 'no streaming replica'):
+                ops.replication()
+
+    def test_replication_check_records_roles_and_restores_record(self):
+        import ops
+        written = {}
+        def remote(node, code):
+            if 'pg_is_in_recovery' in code:
+                return {'bdd1': 'f', 'bdd2': 't'}[node]
+            if 'pg_stat_replication' in code:
+                return 'streaming'
+            if 'UPDATE' in code:
+                written['value'] = code.split("nom='")[1].split("'")[0]
+                return 'UPDATE 1'
+            return written['value']
+        with patch.object(ops, 'remote', side_effect=remote) as calls, \
+             patch.object(ops, 'save') as save, patch.object(ops, 'purge') as purge:
+            ops.replication()
+        evidence = save.call_args.args[1]
+        self.assertTrue(evidence['passed'])
+        self.assertEqual(evidence['roles_in_recovery'], {'bdd1': 'f', 'bdd2': 't'})
+        self.assertIn("nom='Candidate 50000'", calls.call_args_list[-1].args[1])
+        purge.assert_called_once()
+
+    def test_database_diagnosis_follows_inventory_application_nodes(self):
+        module = self.diagnostic()
+        visited = []
+        def remote(node, code):
+            visited.append(node)
+            if node.startswith('bdd'):
+                return json.dumps({'reachable': True, 'in_recovery': node == 'bdd2'})
+            return json.dumps({'checks': []})
+        with patch.object(module, 'inventory', return_value={'nodes': self.NODES}), \
+             patch.object(module, 'remote', side_effect=remote):
+            report = module.diagnose()
+        self.assertEqual(sorted(report['applications']), ['app1', 'app2'])
+        self.assertNotIn('app3', visited)
+        self.assertEqual(report['writable_databases'], ['bdd1'])
+
+    def test_database_diagnosis_survives_halted_primary(self):
+        module = self.diagnostic()
+        def remote(node, code):
+            if node == 'bdd1':
+                raise subprocess.CalledProcessError(255, 'vagrant ssh')
+            if node == 'bdd2':
+                return json.dumps({'reachable': True, 'in_recovery': True})
+            return json.dumps({'checks': []})
+        with patch.object(module, 'inventory', return_value={'nodes': self.NODES}), \
+             patch.object(module, 'remote', side_effect=remote):
+            report = module.diagnose()
+        self.assertEqual(report['databases']['bdd1'], {'reachable': False})
+        self.assertIn('503', report['verdict'])
+
+    def test_database_diagnosis_flags_two_writable_databases(self):
+        module = self.diagnostic()
+        writable, message = module.verdict({'bdd1': {'in_recovery': False},
+                                            'bdd2': {'in_recovery': False}})
+        self.assertEqual(writable, ['bdd1', 'bdd2'])
+        self.assertIn('split brain', message)
+
+    def test_database_diagnosis_rejects_unknown_node(self):
+        module = self.diagnostic()
+        with self.assertRaisesRegex(SystemExit, 'app9'):
+            module.app_nodes({'nodes': self.NODES}, ['app9'])
 
 
 class AddressConflictTests(unittest.TestCase):
