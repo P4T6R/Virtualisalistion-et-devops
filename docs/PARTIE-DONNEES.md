@@ -106,7 +106,9 @@ La commande suit cet ordre, chaque étape conditionnant la suivante :
 1. **Isolement.** Elle refuse de continuer si bdd1 n'est pas dans l'état `poweroff`. Une VM `saved` n'est pas isolée : elle peut reprendre en primaire et créer un cerveau divisé.
 2. **Promotion.** `pg_promote(true, 30)` sur bdd2, qui attend la fin de la promotion. Si bdd2 est déjà primaire, l'étape ne fait rien.
 3. **Redirection.** Sur chaque serveur applicatif, `DB_HOSTS` devient `<bdd2>,<bdd1>` puis le service redémarre.
-4. **Contrôle.** Attente d'un 200 public sur `/sante`, puis écriture de la preuve `V4-promotion` et du marqueur `.runtime/promoted`.
+4. **Contrôle.** Attente d'un 200 public sur `/sante`.
+5. **Purge du cache.** Les clés `resultats:v1:*` sont supprimées de Redis (voir 8.2). Si lb1 ne répond pas, la promotion n'échoue pas : un avertissement demande de lancer `python3 scripts/ops.py cache-purge`, et la preuve indique `cache_purged: false`.
+6. **Preuve.** Écriture de `V4-promotion` et du marqueur `.runtime/promoted`. La durée enregistrée s'arrête au retour de la santé et n'inclut pas la purge, pour rester comparable aux mesures précédentes.
 
 Après promotion, **bdd1 doit rester arrêtée**. Si on la redémarre telle quelle, elle se croit encore primaire : deux bases accepteraient des écritures divergentes. `python3 scripts/diagnose-db.py` signale cette situation dans son verdict.
 
@@ -152,7 +154,7 @@ Les délais Redis sont de 0,2 s. Si Redis ne répond pas, la lecture passe direc
 - **Durée de vie.** Une donnée modifiée en base peut rester ancienne dans le cache pendant 30 s au plus. C'est le filet de sécurité si une purge est oubliée.
 - **Purge explicite.** `python3 scripts/ops.py cache-purge` supprime toutes les clés `resultats:v1:*`. Le contrôle R5 l'appelle automatiquement après avoir restauré la ligne de test.
 - **Version dans la clé.** Le préfixe `v1` permet, si le format JSON change, de passer à `v2` sans servir d'anciennes réponses.
-- **Après une bascule.** Une écriture validée sur bdd1 mais non répliquée peut se trouver dans le cache et pas dans bdd2. Purger le cache après une promotion évite de servir une donnée que la nouvelle primaire ne contient pas.
+- **Après une bascule.** Une écriture validée sur bdd1 mais non répliquée peut se trouver dans le cache et pas dans bdd2. `ops.py promote` purge donc le cache automatiquement, pour ne pas servir une donnée que la nouvelle primaire ne contient pas.
 
 Le compromis est assumé : un résultat d'examen change très rarement après publication, donc 30 s de fraîcheur perdue contre un débit multiplié par dix est un bon échange.
 

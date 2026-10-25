@@ -233,9 +233,19 @@ p.chmod(0o600)
 subprocess.run(['systemctl','restart','resultats'],check=True)
 ''')
     wait_health(timeout=90)
-    save('V4-promotion', {'duration_seconds': time.monotonic()-start,
+    duration = time.monotonic() - start
+    # A write committed on bdd1 but never replicated may still sit in Redis:
+    # purge so the new primary is the only source of the answers served.
+    try:
+        purge()
+        cache_purged = True
+    except subprocess.CalledProcessError:
+        cache_purged = False
+        print('Warning: result cache not purged; run python3 scripts/ops.py cache-purge')
+    save('V4-promotion', {'duration_seconds': duration,
                            'fenced': 'bdd1 poweroff', 'primary': 'bdd2',
-                           'application_db_hosts': f'{replica},{primary}', 'health': 200})
+                           'application_db_hosts': f'{replica},{primary}', 'health': 200,
+                           'cache_purged': cache_purged})
     print('Keep bdd1 OFF. Use the documented disposable-lab rebuild before restarting it.')
 
 

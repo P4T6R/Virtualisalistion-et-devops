@@ -297,6 +297,34 @@ class DataLayerTests(unittest.TestCase):
         self.assertIn("nom='Candidate 50000'", calls.call_args_list[-1].args[1])
         purge.assert_called_once()
 
+    def promote_with(self, purge_effect=None):
+        import ops
+        nodes = [{'name': 'bdd1', 'role': 'primary', 'ip': '192.168.56.31'},
+                 {'name': 'bdd2', 'role': 'replica', 'ip': '192.168.56.32'},
+                 {'name': 'app1', 'role': 'app', 'ip': '192.168.56.21'}]
+        order = []
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(ops, 'ROOT', Path(directory)), \
+             patch.object(ops, 'run', return_value='0,bdd1,state,poweroff'), \
+             patch.object(ops, 'remote'), \
+             patch.object(ops, 'inventory', return_value={'nodes': nodes}), \
+             patch.object(ops, 'wait_health', side_effect=lambda **_: order.append('health')), \
+             patch.object(ops, 'purge', side_effect=purge_effect or (lambda: order.append('purge'))), \
+             patch.object(ops, 'save') as save, patch('builtins.print'):
+            ops.promote()
+        return order, save.call_args.args[1]
+
+    def test_promotion_purges_cache_after_health_returns(self):
+        order, evidence = self.promote_with()
+        self.assertEqual(order, ['health', 'purge'])
+        self.assertTrue(evidence['cache_purged'])
+
+    def test_promotion_survives_cache_purge_failure(self):
+        failure = subprocess.CalledProcessError(255, 'vagrant ssh lb1')
+        _, evidence = self.promote_with(purge_effect=failure)
+        self.assertFalse(evidence['cache_purged'])
+        self.assertEqual(evidence['primary'], 'bdd2')
+
     def test_database_diagnosis_follows_inventory_application_nodes(self):
         module = self.diagnostic()
         visited = []
