@@ -18,7 +18,11 @@ La campagne VirtualBox complète a été exécutée sur la machine physique le 1
 
 ### Travail humain restant
 
-Les noms, contributions et commits des quatre étudiants ne sont pas inventés. Ils doivent être ajoutés par les membres concernés. L'adresse 192.168.56.0/24 reste provisoire, car le tableau du sujet s'arrête au groupe 8 et doit être confirmé par l'enseignant.
+Les contributions réelles des quatre étudiants sont intégrées par Pull Requests et consignées dans le journal du groupe. L'adresse 192.168.56.0/24 reste provisoire, car le tableau du sujet s'arrête au groupe 8 et doit être confirmé par l'enseignant. Le groupe doit encore répéter la démonstration de vingt minutes.
+
+### Dépôt GitHub du groupe
+
+https://github.com/P4T6R/Virtualisalistion-et-devops.git
 
 ## Exigences et traçabilité
 
@@ -55,6 +59,20 @@ Le socle consomme 3 072 Mio : 768 Mio pour chaque base, 512 Mio pour app1, app2 
 ### Limites
 
 lb1 reste un point unique de panne. Les extensions retenues ne couvrent pas la redondance du répartiteur. L'arrêt de la machine hôte arrête l'ensemble du laboratoire. Les ressources disponibles sur l'hôte doivent être contrôlées avant un démarrage complet.
+
+## Schéma d’architecture
+
+### Vue de la topologie à quatre applications
+
+![Schéma de l’architecture](assets/schema-architecture.png)
+
+### Lecture du schéma
+
+Le client atteint HAProxy via le port 8080 de l’hôte, redirigé vers le port 80 de lb1. HAProxy distribue le trafic HTTP aux quatre applications sur le port 8000 et vérifie leur route /sante. Chaque application consulte bdd1 sur le port 5432 et peut joindre Redis sur lb1:6379 ; le trait pointillé représente cet accès commun au cache. La flèche entre les bases représente la réplication physique asynchrone des journaux WAL.
+
+### Réseaux et bascule
+
+Les services utilisent le réseau privé. Chaque VM possède également un adaptateur NAT pour ses téléchargements et une redirection SSH sur la boucle locale de l’hôte pour Vagrant ; ces accès de gestion ne sont pas représentés. Après arrêt vérifié de bdd1 et promotion manuelle, les applications sont reconfigurées pour utiliser bdd2. Le schéma décrit l’état normal avant promotion.
 
 ## Provisionnement reproductible
 
@@ -172,15 +190,26 @@ Les tests ont été exécutés depuis la machine physique avec l'inventaire docu
 
 ### Tableau des résultats
 
-V1 : réussi, 5/5/5/5. V2 : réussi, huit pertes et 4,49 secondes dégradées. V3 : mesuré, 137,17 requêtes par seconde à deux applications et 121,28 à quatre. V4 : réussi après correction, HTTP 503 puis 200 en 22,66 secondes reprises. V5 : réussi en 1 042,10 secondes. R2 et R5 : réussis. E3 : gain 10,48 fois. E4 : 17 155 requêtes sans échec.
+| Scénario | Mesure enregistrée | Conclusion / réserve |
+|---|---|---|
+| V1 — répartition | 20 requêtes ; 5 réponses par application ; écart nul. | Réussi, après reconstruction. |
+| V2 — panne applicative | 2 939 requêtes ; 8 pertes ; fenêtre de 4,49 s ; éviction en 3,67 s. | Réévaluation réussie : aucune erreur achevée après 5 s depuis le premier échec. Le JSON initial indiquait un échec. |
+| V3 — charge | N=2 : 137,17 req/s ; N=4 : 121,28 req/s ; zéro échec. | Baisse mesurée de 11,58 %. Aucun gain de débit revendiqué. |
+| V4 — bascule | HTTP 503 puis 200 ; bdd2 principale ; 22,66 s. | Reprise de test après une promotion antérieure ; durée initiale d’arrêt exclue. Ancien 503 HTML, avant correction JSON. |
+| V5 — reconstruction | 1 042,10 s ; sept VM actives ; santé HTTP 200. | Réussi ; V1 et R5 rejoués après reconstruction. |
+| V6 — répartiteur redondant | Non exécuté : extension E1 non retenue. | Sans objet ; lb1 reste un point unique de panne. |
+| R2 — idempotence | Empreintes identiques après les deux applications. | Réévaluation réussie : F(F(x)) = F(x). |
+| R5 — réplication | Valeur temporaire écrite sur bdd1 et visible sur bdd2. | Réussi dans la campagne du 18 octobre. |
+| E3 — cache Redis | 121,28 → 1 271,20 req/s ; gain de 10,48 fois. | Clé identique préchauffée ; résultat de meilleur cas. |
+| E4 — déploiement | 17 155 requêtes ; zéro échec ; quatre applications en version 2. | Sonde sur tout le déploiement et 5 s supplémentaires. |
 
 ### Contrôles locaux
 
-Vingt et un tests de l'application, de l'inventaire et des protections opérationnelles passent. Les syntaxes Python, Bash et Ruby ont été contrôlées. La reconstruction finale a ensuite vérifié les vrais services invités, puis V1 et R5 ont été rejoués avec succès.
+La suite découvre quarante tests de l'application, de l'inventaire et des protections opérationnelles. Sur l'hôte sans binaire HAProxy, trente-neuf réussissent et le contrôle d'intégration HAProxy est ignoré. Les syntaxes Python, Bash et Ruby ont été contrôlées. La reconstruction finale a ensuite vérifié les vrais services invités, puis V1 et R5 ont été rejoués avec succès.
 
 ### Fichiers de preuve
 
-Les preuves finales sont listées dans docs/VALIDATION.md avec leurs noms horodatés. Les essais infructueux restent dans results afin de montrer les causes identifiées et les corrections apportées. Ils ne remplacent pas les fichiers finaux indiqués dans la matrice.
+La campagne date du 18 octobre 2026. Les fichiers V2-app-failure-evaluation et R2-idempotence-evaluation documentent les réévaluations des sorties initiales ; V4-total-failover indique resumed_after_prior_promotion=true. Les chemins complets figurent dans docs/VALIDATION.md. Ces archives ne prouvent pas à elles seules une nouvelle exécution des changements fusionnés ensuite sur main.
 
 ## Sécurité limites et disponibilité
 
@@ -208,7 +237,7 @@ scripts/start.sh crée les secrets manquants, vérifie les prérequis, valide Va
 
 ### Contributions
 
-Les quatre membres doivent prendre en charge le réseau, l'application, les données et la validation, puis réaliser chacun une contribution réelle hors de leur rôle principal. Le guide Git joint explique comment enregistrer ces changements avec les vraies identités sans fabriquer d'historique.
+Les quatre membres ont contribué avec leurs identités réelles par Pull Requests. Céphas CONGO assure l'architecture et l'intégration, Lompo Ephraim la validation et le réseau, Leïla BOUGOUMA l'application et Eva Benjamine Kazienga les données et la résilience. Le journal associe chaque personne à ses commits réels et à une contribution croisée.
 
 ### Démonstration
 

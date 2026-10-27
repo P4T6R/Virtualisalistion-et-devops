@@ -20,9 +20,12 @@ la reproduire sur la machine Linux physique.
 
 6. Consulter README.md pour la réplication, les pannes, le cache et le
    déploiement progressif.
-7. Utiliser docs/guide-commits-git.pdf pour produire les vrais commits des quatre
-   membres.
-8. Compléter le journal avec les vrais noms, contributions et identifiants.
+7. Consulter `docs/journal-de-bord.md` pour les contributions réelles des quatre
+   membres et `docs/guide-demonstration.pdf` pour préparer la présentation.
+8. Confirmer le réseau provisoire avec l'enseignant, puis répéter la
+   reconstruction et trois scénarios.
 
-Les 21 tests locaux passent. Les mesures et limites sont dans docs/STATUS.md.
+La suite découvre 42 tests ; sur l'hôte sans binaire HAProxy, 41 réussissent et
+le contrôle d'intégration HAProxy est ignoré. Les mesures et limites sont dans
+docs/STATUS.md.
 La VM Ubuntu créée séparément ne fait pas partie des VM ciblées par ce projet.

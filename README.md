@@ -145,16 +145,18 @@ preuve finale couvre tout le déploiement et cinq secondes supplémentaires :
 
 ## 9 Livrables
 
-- docs/architecture-report.pdf : rapport en français de douze pages.
-- docs/team-journal.pdf : journal en français de deux pages à compléter.
-- docs/guide-commits-git.pdf : méthode pour les vrais commits des membres.
-- docs/VALIDATION.md : matrice reliant chaque critère à sa preuve.
-- docs/STATUS.md : état vérifié et travail humain restant.
+- [docs/rapport-architecture.pdf](docs/rapport-architecture.pdf) : rapport en français avec schéma d’architecture et tableau des résultats.
+- [docs/journal-de-bord.pdf](docs/journal-de-bord.pdf) : journal du groupe en français.
+- [docs/guide-contributions-git.pdf](docs/guide-contributions-git.pdf) : méthode pour les vrais commits des membres.
+- [docs/guide-demonstration.pdf](docs/guide-demonstration.pdf) : guide détaillé pour la vidéo ; mise en page sobre et logo en couleur.
+- Les versions Word modifiables du rapport, du journal et du guide de démonstration portent les mêmes noms avec l’extension `.docx`.
+- [docs/VALIDATION.md](docs/VALIDATION.md) : matrice reliant chaque critère à sa preuve.
+- [docs/STATUS.md](docs/STATUS.md) : état vérifié et travail humain restant.
 - results : preuves JSON, CSV et ApacheBench.
 
-L'historique Git doit contenir de vraies contributions. Chaque membre configure
-son vrai nom et son courriel, réalise une modification qu'il comprend, la teste
-et crée son propre commit. Il ne faut pas inventer les auteurs.
+Les quatre membres ont des contributions réelles intégrées dans l'historique Git.
+Les améliorations proposées ensuite peuvent encore faire l'objet de Pull Requests ouvertes. Les auteurs, les sujets et les identifiants correspondants
+sont consignés dans le journal du groupe.
 
 ## 10 Démonstration
 
@@ -162,5 +164,6 @@ Prévoir environ deux minutes pour l'architecture, huit minutes pour expliquer l
 reconstruction, sept minutes pour les scénarios et trois minutes pour
 interpréter les preuves. V6 ne s'applique pas car E1 n'est pas retenue.
 
-Avant la remise, compléter les noms et contributions, confirmer le réseau du
-groupe 10 et répéter la présentation.
+Avant la remise, confirmer le réseau du groupe 10 avec l'enseignant. Le
+présentateur désigné répète toute la vidéo à l'aide de
+`docs/guide-demonstration.pdf`, après relecture de chaque partie par son contributeur.
