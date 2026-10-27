@@ -8,7 +8,7 @@
 | R4 / V2 | validate-live.py v2 | Réussi — huit pertes, 4,49 s dégradées, aucune erreur après cinq secondes | V2-app-failure, évaluation et CSV |
 | R5 | ops.py replication | Réussi — valeur unique visible sur bdd2 | 20261018T132337157126Z-R5-replication.json |
 | R6 / V4 | validate-recovery.py | Réussi — 503 contrôlé, bdd2 principale, santé 200 en 22,66 s reprises | V4-promotion et V4-total-failover |
-| R7 | contrôle Git | Sources correctes ; vrais commits encore nécessaires | .gitignore et .env.exemple |
+| R7 | contrôle Git | Réussi — secrets exclus et quatre auteurs réels visibles dans `main` | .gitignore, .env.exemple et historique Git |
 | R8 | contrôle réseau | Services privés, seul lb1 expose l'application | Vagrantfile ; interprétation SSH déclarée |
 | V3 | ab -n 2000 -c 50 sans cache | 137,17 req/s à deux applications ; 121,28 à quatre ; zéro échec | V3-N2.txt et V3-N4.txt |
 | V6 | E1 non retenue | Sans objet | E3 et E4 sont les extensions choisies |

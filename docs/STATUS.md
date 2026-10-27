@@ -28,7 +28,10 @@
 - E3 : le cache Redis préchauffé passe de 121,28 à 1 271,20 req/s.
 - E4 : 17 155 requêtes pendant la totalité du déploiement, zéro échec et les
   quatre applications observées en version 2.
-- Les 21 tests locaux passent.
+- La suite découvre 42 tests : 41 réussissent et le contrôle nécessitant le
+  binaire HAProxy est ignoré lorsque ce binaire n'est pas installé sur l'hôte.
+- Les contributions de CONGO Céphas, Lompo Ephraim, Leïla BOUGOUMA et Eva
+  Benjamine Kazienga sont intégrées dans `main` par Pull Requests.
 
 ## Incidents corrigés
 
@@ -44,9 +47,20 @@
 ## Travail humain restant
 
 - Confirmer le réseau provisoire 192.168.56.0/24 avec l'enseignant.
-- Ajouter les quatre vrais noms, rôles, contributions croisées et commits.
 - Répéter la démonstration de vingt minutes.
 - Confirmer l'interprétation de R8 concernant les ports SSH de gestion Vagrant.
 
-La campagne technique est terminée. La remise dépend encore de ces éléments
-humains et de la confirmation de l'enseignant.
+La campagne technique du 18 octobre est documentée et les quatre membres ont
+des contributions intégrées dans main. La remise dépend
+encore de la répétition et des confirmations demandées à l'enseignant.
+
+## Vérification locale du 27 octobre 2026
+
+La copie locale a été synchronisée avec `c85a5b6` (fusion de la PR nº 7).
+La suite comporte 42 tests : 41 réussissent et un est ignoré, car le binaire
+HAProxy n’est pas installé dans le chemin des commandes de cet hôte. Les deux
+contrôles de syntaxe Ruby réussissent. Cette vérification ne démarre aucune VM
+et ne constitue pas une nouvelle campagne de mesures VirtualBox.
+
+La PR nº 3 (`v1-generic`) était encore ouverte lors de cette publication ;
+son contenu ne fait pas partie de cette validation de main.

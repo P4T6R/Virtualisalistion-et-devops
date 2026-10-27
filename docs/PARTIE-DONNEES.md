@@ -76,7 +76,7 @@ Le message d'erreur de PostgreSQL n'est jamais renvoyé : il pourrait contenir u
 
 ### 5.2. Ce que voit le client derrière HAProxy
 
-HAProxy interroge `/sante` toutes les secondes (`inter 1s fall 2`). Dès que bdd1 tombe, tous les serveurs applicatifs répondent 503 et sont retirés du groupe après deux échecs de sonde, soit quelques secondes (l'éviction d'un serveur a été mesurée à 3,67 s pendant V2). Pendant ce court intervalle, le client reçoit les 503 JSON de l'application. Ensuite, aucun serveur n'est disponible et c'est **HAProxy lui-même** qui renvoie 503, avec sa page HTML par défaut et non le JSON de l'application. Dans les deux cas le client reçoit un 503 propre, jamais une connexion refusée, ce qui répond à V4. Uniformiser le corps en JSON demanderait une règle dans la configuration du répartiteur ; c'est noté dans les limites.
+HAProxy interroge `/sante` toutes les secondes (`inter 1s fall 2`). Dès que bdd1 tombe, tous les serveurs applicatifs répondent 503 et sont retirés du groupe après deux échecs de sonde, soit quelques secondes (l'éviction d'un serveur a été mesurée à 3,67 s pendant V2). Pendant ce court intervalle, le client reçoit les 503 JSON de l'application. Ensuite, lorsqu'aucun serveur n'est disponible, la règle du frontal public fait répondre **HAProxy lui-même** avec le code 503, le type `application/json` et le corps `{"error":"service_unavailable"}`. Le client reçoit donc toujours une réponse JSON contrôlée, jamais la page HTML par défaut de HAProxy ni une connexion refusée, ce qui répond à V4.
 
 ### 5.3. Observer la panne
 
@@ -191,6 +191,6 @@ python3 scripts/ops.py benchmark --label E3-warm-cache
 - La bascule est manuelle. Un outil à consensus comme Patroni l'automatiserait, mais il faudrait au moins une machine de plus, hors du budget mémoire.
 - Après promotion, bdd2 est seule : il n'y a plus de réplique jusqu'à la reconstruction.
 - La réplication asynchrone peut perdre les dernières transactions lors d'une panne brutale de bdd1.
-- Une fois tous les serveurs retirés, le 503 vient de HAProxy en HTML et non de l'application en JSON.
+- Une fois tous les serveurs retirés, le 503 JSON est produit par HAProxy avec l'erreur générique `service_unavailable` ; il ne précise pas si l'indisponibilité vient de PostgreSQL ou des serveurs applicatifs.
 - Redis n'est pas redondant. Sa panne n'interrompt pas le service mais ramène le débit au niveau sans cache.
 - Aucune sauvegarde hors ligne n'est prévue : une réplique protège contre la perte d'une machine, pas contre une suppression accidentelle, qui serait aussitôt répliquée.

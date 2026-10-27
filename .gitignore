@@ -7,3 +7,6 @@ results/*
 !results/README.md
 
 .test-env/
+
+# Temporary office-editor lock files.
+.~lock.*#
